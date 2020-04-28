@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service # Object type service we use to setup networking inside the container
+metadata:
+  name: client-node-port
+spec:
+  type: NodePort
+  ports:
+    - port: 3050
+    # port: 3050: Use by other pods in our cluster who might need to conenct to the client-pod through the service.
+    # so other pods will connect to service using 3050 and then it will be reidrected to 3000 client-pod
+      targetPort: 3000
+    # targetPort is containerPort in client-pod
+      nodePort: 31515
+    # nodePort: port used by us to access the multi-client from browser(outisde)
+    # 30000-32767 (fixed range)
+  selector:
+    component: web

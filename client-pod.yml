@@ -1,0 +1,16 @@
+# each apiVersion defines a different set of 'objects' we can use in container
+# image: k8s-apiVersion-type
+apiVersion: v1
+kind: Pod # Object type Pod is used to run a container
+metadata:
+  name: client-pod
+  labels:
+    component: web
+    # just a key:value pair. We can name it tier:frontend And make sure we
+    # use the same key:value pair in the client-node-port.yml selector attribute
+spec:
+  containers:
+    - name: client
+      image: ishantoberoi/multi-client # docker hub image name.
+      ports:
+        - containerPort: 3000 # expose 3000 port to outside world

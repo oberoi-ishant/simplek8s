@@ -1,0 +1,173 @@
+In Kubernates (k8s) world
+
+Kubernates (k8s) is the system to deploy containerized apps.
+
+Command to test if minikube and kubectl are installed
+  - which minikube
+  - which kubectl
+  They give you the location of the installed programs.
+
+Command to test status
+- kubectl get pods
+- kubectl get services
+- kubectl get deployments
+
+IP of the Pod and need for SERVICES
+kubectl get pods -o wide
+Every pod running inside the Node gets a IP address assigned which is internal to the node.
+Output shows IP address assigned to the pod inside the node(VM/Physical Computer)
+So when pods are updated/re-created the IP might change. Services are therefore helpful as they
+monitor the pods using the selector and we can consistently reach out to the application
+inside the pod using the port exposed in service. eg. client-node-port.yml
+
+
+Command to get detailed info about an object(Image: update-object-k8s)
+- kubectl describe pod client-pod
+  Meaning - kubectl describe <object-type> <object-name-optional>
+
+Command to delete a running pod
+- kubectl delete -f <config-file>
+This is an imperative way. Reaching out to k8s and asking to change something as opposed to pass a config.
+But this is how we do delete. Live with it.
+kubectl looks for a running pod with NAME and KIND of the one specified in config file and delete it.
+It follows same thing that happens in docker world with container stop. The container/pod here is given 10 secs to resolve gracefully after that it is killed.
+Basically difference b/w kill and stop docker commands.
+kill - immidistely kills
+stop - 10sec to gracefully shut down after that kill if not already killed.
+
+Command to delete a Deployment
+- kubectl delete <type-of-object> <object-name>
+eg: kubectl delete deployment client-deployment
+kubectl delete service client-node-port
+
+Command to update an OBJECT inside the cluster
+- kubectl set <property> <object-type>/<object-name> <container-name>=<new-property>
+eg: kubectl set image deployment/client-deployment client=ishantoberoi/multi-client:v1
+Note: no space before/after equal to sign
+
+
+With our development using minikube we are running exactly one node (One VM)
+
+Command to get IP of the VM created by minikube
+- minikube ip   // Coz the app is running inside this VM.(Image: k8s-kube-proxy)
+  So this IP will replace localhost in url for development.
+
+
+Node - means VM/Physical Computer.
+
+kube_proxy - Image(k8s-kube-proxy) service running on the node that is exposed to outside world.
+Takes all incoming requests and decides what to do. Every node inside k8s cluster has this service running.
+
+Object types: (Image: k8s-object-types, object-types)
+1. Pod: runs one or more closely related containers.
+2. Services: sets up networking in a k8s Cluster.
+    - Types of Services: ClusterIP, NodePort, LoadBalancer and Ingress
+    NodePort: exposes a set of pods to the outside world (use only for development).
+      Meaning access the container inside through our browser.
+    ClusterIP: exposes a set of pods to other objects in the cluster.
+    So we cannot access the pod it is pointing to from outside(browser).
+    LoadBalancer: legacy way of getting network traffic into a cluster.
+    It only exposes access to only ONE type of pods. So we cannot have it to expose service to our two set of pods like multi-server and multi-client.
+    Ingress: exposes a set of services to the outside world.
+    Ingress service has a lot of specific implementations.
+    We will use the one https://github.com/kubernetes/ingress-nginx
+    Also remember setup for ingress-nginx will differ on local/aws/gcp/azure.
+
+3. Deployment: maintains a set of identical pods, ensuring that they have the correct config and the right number exists.
+4. Secrets: securely stores a piece of information in the cluster, such as db password.
+   Something that you dont want to expose to outside world, but give access to container.
+   Use imperative command to create a secret. Its a secret so cannot add to a config yml file and give to k8s.
+    kubectl create secret generic pgpassword --from-literal PGPASSWORD=pgpassword
+    kubectl create <object-type> <type-of-object> <secret-name> --from-literal key=value
+
+        --from-literal means will add info here and not read from a file.
+
+Pod
+  - can run one or more containers inside it.
+  - is essentially grouping of containers with a COMMON purpose.
+  - The containers inside the Pod must be executed together.
+  - In k8s there is no such thing as creating a single naked continer on the cluster without
+  any associated overhead. The smallest thing that we can deploy is a Pod.
+  So we will deploy containers running inside Pod in k8s. Image: k8s-pod.
+  - Image pod-explained. Here is postgres container goes down the logger and backup manager
+    are useless. Hence they are tighly couppled with postgres container. ie common purpose.
+
+
+Explanation (Image: k8s-master-explanation)
+- kubectl allows us to talk to master program in the k8s cluster.
+- master program monitors the nodes running in the cluster.
+- each node has a docker program installed that can reach docker hub to download the copy of image.
+- the image is then run in a container inside the pod (object)
+- we always talk to master program using kubectl.
+- master has a few programs running inside to monitor the tasks configured using the yml files supplied
+via kubectl apply -f filename.
+- minikube create the vm for us inside which all of this runs.
+- hence that vms ip using minikube ip is the way to react to the apps running inside.
+- so we use that ip and nodePort exported like http://192.168.64.2:31515/
+- Suppose we have asked kubectl run 4 copies of the image inside cluster, so if one container running the image
+gets killed, master ensures a new conatiner is started with that image.
+
+MUST CHECK IMAGE: k8s-must-read
+
+Approaches to work with k8s: Imperative or Declarative.
+Image(imperative-vs-declarative)
+Imperative: instruct step by step what to do.
+Declarative: just configure the desired state of master, rest master will take care. Much like intent state.
+Mostly used in production: Declarative.
+
+UPDATE AN OBJECT IN k8s cluster(Image: update--obejct-k8s)
+- name and kind property in the config file make up a unique identifier.
+- if same name n kind, the configuration is updated on to the already running object inside the pod by the master.
+- if name n kind pair differs then a new pod is created by master.
+- eg, keeping same name n kind, and changing image in config file will update the image in the running object/pod.
+- supplying new config to master is Declarative approach.
+- Imperative: first get the id of the running pod/object then somewhow update the image inside it.
+Situation:
+We have created a new pod file client-pod-worker-update.yml to demostrate how to
+update the object running in the cluster. But here if you change the port number (3000) to something else
+after the pod is running. You see an error. Says we can only update a few properties of the pods running.
+So deployment object is the one that comes to rescue. It will help us either update that port property
+or create a new pod with the updated config. Image (deployment-template.png)
+
+UPDATIND Deployment with latest image Image(update-deployment-*)
+1. No direct way to do it in Declarative approach. As there is no way to say which version of image to use in config file.
+2. So use an imperative approach.
+Steps:
+1. Tag image with a version number, push to docker hub
+ eg:
+ docker build -t ishantoberoi/multi-client:v1 .   (v1 is version. any unique id would do.)
+ docker push ishantoberoi/multi-client:v1
+2. Run a kubectl command focring deployment to use the new image version.
+
+
+CONFIGURE DOCKER CLIENT TO TALK TO DOCKER SERVER INSIDE THE VM (Image: configure-docker-client-vm, eval-docker-vm)
+  - eval $(minikube docker-env)
+Now the docker client on your machine will talk to docker server inside the vm.
+This is temporary. ONLY FOR THAT TERMINAL WINDOW WHERE YOU RUN THE EVAL COMMAND.
+You can also just run: minikube docker-env
+This show the environement variables expose by minikube.
+  - You should see some Output like:
+  export DOCKER_TLS_VERIFY="1"
+  export DOCKER_HOST="tcp://192.168.64.2:2376"
+  export DOCKER_CERT_PATH="/Users/ishant.oberoi/.minikube/certs"
+  export MINIKUBE_ACTIVE_DOCKERD="minikube"
+
+  # To point your shell to minikube's docker-daemon, run:
+  # eval $(minikube -p minikube docker-env)
+  Note here, DOCKER_HOST = minikube IP.
+
+So you can get id of your container multi-client running inside vm using docker ps after
+connecting it through eval $(minikube docker-env). Essentially use all docker commands.
+But most of the commands are also direclty available in kubctl like
+1. docker logs <container-id>
+   kubectl logs <pod-id>
+
+2. To start a shell inisde the container
+  docker exec -it <continer-id> sh
+  kubectl exec -it <pod-id> sh
+
+Controller: In k8s a Controller is any object that works continously to get the desired state of the object inside the cluster.
+check Image (Controller-k8s, ingress-controller-flow-*, ingress-nginx-specific-rule).
+So in ingress-nginx-specific-rule we see that in this very specific implementation of
+nginx the controller and the `thing` that actually manages the traffic is the same thing.
+It may be different in other nginx implementations.

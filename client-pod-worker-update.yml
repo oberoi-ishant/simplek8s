@@ -1,0 +1,18 @@
+# this is example to explain Updating an Object.
+# we use here same name and kind prop as in clinet-pod.yml and just
+# change the image, supply it using the apply command in terminal to
+# update the image in the currenlty running object.
+apiVersion: v1
+kind: Pod # Object type Pod is used to run a container
+metadata:
+  name: client-pod
+  labels:
+    component: web
+    # just a key:value pair. We can name it tier:frontend And make sure we
+    # use the same key:value pair in the client-node-port.yml selector attribute
+spec:
+  containers:
+    - name: client
+      image: ishantoberoi/multi-worker # docker hub image name.
+      ports:
+        - containerPort: 3990 # expose 3000 port to outside world
